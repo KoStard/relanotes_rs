@@ -10,5 +10,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-diesel = { version = "1.0.0", features = ["postgres"] }
 dotenv = "0.9.0"
+libsqlite3-sys = { version = ">=0.8.0, <0.13.0", optional = true, features = ["bundled"] }
+diesel = { version = "1.4.3", features = ["sqlite"] }

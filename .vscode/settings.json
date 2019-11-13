@@ -1,0 +1,10 @@
+{
+    "sqltools.connections": [
+        {
+            "database": "${workspaceFolder}/relanotes.db",
+            "dialect": "SQLite",
+            "name": "RELANOTES"
+        }
+    ],
+    "sqltools.useNodeRuntime": true
+}
