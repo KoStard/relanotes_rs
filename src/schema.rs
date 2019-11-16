@@ -18,7 +18,7 @@ table! {
         id -> Integer,
         linked_to_id -> Nullable<Integer>,
         type_id -> Integer,
-        name -> Nullable<Text>,
+        name -> Text,
         description -> Nullable<Text>,
         group_id -> Integer,
     }

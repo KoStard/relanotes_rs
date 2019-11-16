@@ -1,13 +1,13 @@
 use super::schema::*;
 
-#[derive(Queryable, Debug, Clone)]
+#[derive(Queryable, Identifiable, Debug, Clone)]
 pub struct NodeType {
     pub id: i32,
     pub name: String,
     pub value: String
 }
 
-#[derive(Queryable, Debug, Clone)]
+#[derive(Queryable, Identifiable, Debug, Clone)]
 pub struct Group {
     pub id: i32,
     pub name: String
@@ -28,7 +28,7 @@ pub struct Node {
     pub id: i32,
     pub linked_to_id: Option<i32>,
     pub type_id: i32,
-    pub name: Option<String>,
+    pub name: String,
     pub description: Option<String>,
     pub group_id: i32
 }
@@ -41,7 +41,7 @@ pub struct Node {
 pub struct NewNode {
     pub linked_to_id: Option<i32>,
     pub type_id: i32,
-    pub name: Option<String>,
+    pub name: String,
     pub description: Option<String>,
     pub group_id: i32
 }
