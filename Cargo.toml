@@ -14,3 +14,4 @@ dotenv = "0.9.0"
 libsqlite3-sys = { version = ">=0.8.0, <0.13.0", optional = true, features = ["bundled"] }
 diesel = { version = "1.4.3", features = ["sqlite"] }
 # slotmap = "0.4"
+regex = "1.3.1"

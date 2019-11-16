@@ -79,7 +79,7 @@ impl NodesRepresentation {
         &mut self,
         conn: &SqliteConnection,
         name: &str,
-        description: &str,
+        description: Option<&str>,
         parent_node_id: Option<i32>,
         group_id: i32,
         type_id: i32,
@@ -111,11 +111,20 @@ impl NodesRepresentation {
     }
 
     // O(1)
-    pub fn node_has_loaded_parent(&self, node_id: i32) -> Option<bool> {
+    pub fn node_has_loaded_parent(&self, node_id: i32) -> bool {
         self.map
-            .get(&node_id)?
-            .parent_node_id
-            .and_then(|parent_node_id| self.map.get(&parent_node_id).map(|_| true))
+            .get(&node_id)
+            .and_then(|graph_node| {
+                graph_node
+                    .parent_node_id
+                    .and_then(|parent_node_id| self.map.get(&parent_node_id))
+            })
+            .is_some()
+    }
+
+    // O(1)
+    fn get_graph_node_parent(&self, graph_node: &GraphNode) -> Option<&GraphNode> {
+        self.map.get(&graph_node.parent_node_id?)
     }
 
     pub fn delete_node(&mut self, conn: &SqliteConnection, node_id: i32) -> Option<i32> {
@@ -142,7 +151,8 @@ impl NodesRepresentation {
         node_id: i32,
         new_name: &str,
     ) -> diesel::result::QueryResult<()> {
-        let graph_node = self.map
+        let graph_node = self
+            .map
             .get_mut(&node_id)
             .ok_or(diesel::result::Error::NotFound)?;
         diesel::update(nodes::table.filter(nodes::id.eq(node_id)))
@@ -158,7 +168,8 @@ impl NodesRepresentation {
         node_id: i32,
         new_description: Option<&str>,
     ) -> diesel::result::QueryResult<()> {
-        let graph_node = self.map
+        let graph_node = self
+            .map
             .get_mut(&node_id)
             .ok_or(diesel::result::Error::NotFound)?;
         diesel::update(nodes::table.filter(nodes::id.eq(node_id)))
@@ -166,5 +177,46 @@ impl NodesRepresentation {
             .execute(conn)?;
         graph_node.node.description = new_description.map(|d| d.into());
         Ok(())
+    }
+
+    pub fn get_node(&self, id: &i32) -> Option<&Node> {
+        Some(&self.map.get(id)?.node)
+    }
+
+    fn get_graph_node(&self, id: &i32) -> Option<&GraphNode> {
+        self.map.get(id)
+    }
+
+    pub fn get_roots(&self) -> Vec<i32> {
+        self.map
+            .keys()
+            .filter(|id| !self.node_has_loaded_parent(**id))
+            .map(|e| *e)
+            .collect()
+    }
+
+    pub fn get_node_loaded_path_names(&self, id: &i32) -> Option<Vec<String>> {
+        let mut reversed_path = Vec::new();
+        let mut graph_node = self.get_graph_node(id)?;
+        while let Some(parent) = self.get_graph_node_parent(graph_node) {
+            reversed_path.push(String::from(&parent.node.name));
+            graph_node = parent;
+        }
+        reversed_path.reverse();
+        Some(reversed_path)
+    }
+
+    pub fn get_node_loaded_children_count(&self, id: &i32) -> Option<usize> {
+        Some(self.map.get(id)?.children.len())
+    }
+
+    pub fn get_node_loaded_children(&self, id: &i32) -> Option<Vec<i32>> {
+        Some(self.map.get(id)?.children.clone())
+    }
+
+    pub fn get_node_loaded_parent(&self, id: &i32) -> Option<i32> {
+        self.map
+            .get(&self.map.get(id)?.parent_node_id?)
+            .map(|n| n.node.id)
     }
 }
