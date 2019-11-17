@@ -2,8 +2,9 @@
 use super::models::Node;
 use super::schema::nodes;
 use diesel;
+use diesel::debug_query;
 use diesel::prelude::*;
-use diesel::sqlite::SqliteConnection;
+use diesel::sqlite::{Sqlite, SqliteConnection};
 use std::collections::HashMap;
 
 struct GraphNode {
@@ -84,6 +85,19 @@ impl NodesRepresentation {
         group_id: i32,
         type_id: i32,
     ) -> Result<i32, diesel::result::Error> {
+        if parent_node_id.is_none() {
+            if nodes::table
+                .filter(nodes::name.eq(name))
+                .filter(nodes::linked_to_id.is_null())
+                .first::<Node>(conn)
+                .is_ok()
+            {
+                return Err(diesel::result::Error::DatabaseError(
+                    diesel::result::DatabaseErrorKind::UniqueViolation,
+                    Box::new(String::from("Duplicate name")),
+                ));
+            }
+        }
         diesel::insert_into(nodes::table)
             .values((
                 nodes::name.eq(name),
@@ -93,11 +107,21 @@ impl NodesRepresentation {
                 nodes::group_id.eq(group_id),
             ))
             .execute(conn)?;
-        let mut new_node = nodes::table
+
+        let mut filter_to_get_model = nodes::table
             .filter(nodes::name.eq(name))
-            .filter(nodes::linked_to_id.eq(parent_node_id))
             .filter(nodes::group_id.eq(group_id))
-            .first::<Node>(conn)?;
+            .into_boxed();
+
+        if parent_node_id.is_some() {
+            filter_to_get_model =
+                filter_to_get_model.filter(nodes::linked_to_id.eq(parent_node_id));
+        } else {
+            filter_to_get_model = filter_to_get_model.filter(nodes::linked_to_id.is_null());
+        }
+
+        let mut new_node = filter_to_get_model.first::<Node>(conn)?;
+
         let new_node_id = new_node.id;
         let graph_node = GraphNode::new(new_node);
         self.map.insert(new_node_id, graph_node);
@@ -165,12 +189,12 @@ impl NodesRepresentation {
     pub fn set_node_description(
         &mut self,
         conn: &SqliteConnection,
-        node_id: i32,
+        node_id: &i32,
         new_description: Option<&str>,
     ) -> diesel::result::QueryResult<()> {
         let graph_node = self
             .map
-            .get_mut(&node_id)
+            .get_mut(node_id)
             .ok_or(diesel::result::Error::NotFound)?;
         diesel::update(nodes::table.filter(nodes::id.eq(node_id)))
             .set(nodes::description.eq(new_description))
@@ -188,11 +212,13 @@ impl NodesRepresentation {
     }
 
     pub fn get_roots(&self) -> Vec<i32> {
-        self.map
+        let mut roots = self.map
             .keys()
             .filter(|id| !self.node_has_loaded_parent(**id))
             .map(|e| *e)
-            .collect()
+            .collect::<Vec<i32>>();
+        roots.sort();
+        roots
     }
 
     pub fn get_node_loaded_path_names(&self, id: &i32) -> Option<Vec<String>> {

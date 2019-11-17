@@ -41,7 +41,6 @@ fn standard_view(
         })
         .collect();
 
-    println!("Group \"{}\" : {}", group_name, parent_path);
 
     let symbols_per_break = 3;
     let breaks_count = 3;
@@ -50,6 +49,7 @@ fn standard_view(
     let overall_length =
         max_lengths.0 + max_lengths.1 + max_lengths.2 + symbols_per_break * breaks_count;
     println!("{}", repeat('-').take(overall_length).collect::<String>());
+    println!("Group \"{}\" : {}", group_name, parent_path);
 
     println!(
         "{:<id_width$} | {:<name_width$} | {:<description_width$} | {:<children_count_width$}",
@@ -76,12 +76,13 @@ fn standard_view(
             children_count_width = max_lengths.3,
         );
     }
+    println!("{}", repeat('-').take(overall_length).collect::<String>());
 }
 
 enum Command {
     OpenWithId(i32),
     OpenWithName(String),
-    AddOrEdit { name: String, description: String },
+    AddOrEdit { name: String, description: String }, // Allow access with id
     BackToParent,
     Invalid,
 }
@@ -104,7 +105,7 @@ fn get_command() -> Command {
         r"^(?P<name>^[^-]*(?:-[^-]+)*)\s*--\s*(?P<description>(?:[^-]+-?|$)+)$", // Default requests format from Pharmony
         r"^.+$",
     ])
-        .unwrap();
+    .unwrap();
 
     let first_match = checkers_set.matches(&inp).into_iter().nth(0);
 
@@ -115,8 +116,8 @@ fn get_command() -> Command {
             2 => {
                 let spl = inp.split("--").collect::<Vec<&str>>();
                 Command::AddOrEdit {
-                    name: String::from(*spl.get(0).unwrap()),
-                    description: String::from(*spl.get(1).unwrap()),
+                    name: String::from(spl.get(0).unwrap().trim()),
+                    description: String::from(spl.get(1).unwrap().trim()),
                 }
             }
             3 => Command::OpenWithName(inp),
@@ -153,7 +154,7 @@ fn main() {
                         if let Some(p) = parent_id {
                             parent_id = nodes.get_node_loaded_parent(&p);
                         } else {
-                            println!("Invalid id");
+                            // Nothing happens, because is viewing the roots
                         }
                     }
                     Command::OpenWithName(name) => {
@@ -163,10 +164,42 @@ fn main() {
                         {
                             parent_id = Some(*child_id);
                         } else {
-                            println!("Invalid id");
+                            println!("Invalid name");
                         }
                     }
-                    _ => {
+                    Command::AddOrEdit { name, description } => {
+                        let found = children
+                            .iter()
+                            .find(|child| nodes.get_node(*child).unwrap().name == name);
+                        let resp = match found {
+                            Some(child_id) => {
+                                // Updating the node
+                                nodes
+                                    .set_node_description(&connection, child_id, Some(&description))
+                                    .and(Ok(()))
+                            }
+                            None => {
+                                // Creating new child
+                                nodes
+                                    .create_node(
+                                        &connection,
+                                        &name,
+                                        Some(&description),
+                                        parent_id,
+                                        group.id,
+                                        get_node_type(&connection, "regular").unwrap().id,
+                                    )
+                                    .and(Ok(()))
+                            }
+                        };
+                        match resp {
+                            Ok(_) => println!("Done."),
+                            Err(e) => {
+                                println!("{:?}", e);
+                            }
+                        }
+                    }
+                    Command::Invalid => {
                         unimplemented!("Not implemented!");
                     }
                 }
