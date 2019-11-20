@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate diesel;
 extern crate dotenv;
+#[macro_use]
+extern crate diesel_migrations;
 
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
@@ -66,12 +68,16 @@ pub fn get_group_from_name(conn: &SqliteConnection, name: &str) -> Option<Group>
     groups::table.filter(groups::name.eq(name)).first(conn).ok()
 }
 
-pub fn load_group(
-    connection: &SqliteConnection,
-    name: &str,
-) -> Option<NodesRepresentation> {
+pub fn load_group(connection: &SqliteConnection, name: &str) -> Option<NodesRepresentation> {
     let mut nodes: Vec<Node> = Node::belonging_to(&get_group_from_name(connection, name)?)
         .load(connection)
         .expect("Got problems while loading nodes");
     Some(NodesRepresentation::new(nodes))
+}
+
+embed_migrations!("migrations/");
+pub fn setup_database(
+    connection: &SqliteConnection,
+) -> Result<(), diesel_migrations::RunMigrationsError> {
+    embedded_migrations::run(connection)
 }
