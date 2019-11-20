@@ -9,8 +9,9 @@ use diesel::sqlite::SqliteConnection;
 use dotenv::dotenv;
 
 pub mod models;
-mod nodes_representation;
+pub mod nodes_representation;
 pub mod schema;
+
 use nodes_representation::NodesRepresentation;
 
 use self::models::*;
@@ -24,11 +25,11 @@ pub fn establish_connection() -> SqliteConnection {
     SqliteConnection::establish(&url).expect("Could not connect to the DB")
 }
 
-pub fn get_node_type(connection: &SqliteConnection, value: &str) -> NodeType {
+pub fn get_node_type(connection: &SqliteConnection, value: &str) -> Option<NodeType> {
     node_types::table
         .filter(node_types::value.eq(value))
         .first::<NodeType>(connection)
-        .unwrap()
+        .ok()
 }
 
 pub fn get_node_types(connection: &SqliteConnection) -> Vec<NodeType> {
@@ -57,22 +58,31 @@ pub fn create_regular_node(
         .values((
             nodes::name.eq(name),
             nodes::description.eq(description),
-            nodes::type_id.eq(get_node_type(connection, "regular").id),
+            nodes::type_id.eq(get_node_type(connection, "regular")
+                .ok_or(diesel::result::Error::NotFound)?
+                .id),
             nodes::linked_to_id.eq(parent_node_id),
             nodes::group_id.eq(group_id),
         ))
         .execute(connection)
 }
 
-pub fn get_group_from_name(conn: &SqliteConnection, name: &str) -> Option<Group> {
+pub fn get_group_by_name(conn: &SqliteConnection, name: &str) -> Option<Group> {
     groups::table.filter(groups::name.eq(name)).first(conn).ok()
 }
 
-pub fn load_group(connection: &SqliteConnection, name: &str) -> Option<NodesRepresentation> {
-    let mut nodes: Vec<Node> = Node::belonging_to(&get_group_from_name(connection, name)?)
+pub fn load_group(connection: &SqliteConnection, group: &Group) -> NodesRepresentation {
+    let mut nodes: Vec<Node> = Node::belonging_to(group)
         .load(connection)
         .expect("Got problems while loading nodes");
-    Some(NodesRepresentation::new(nodes))
+    NodesRepresentation::new(nodes)
+}
+
+pub fn create_group(conn: &SqliteConnection, name: &str) -> diesel::result::QueryResult<Group> {
+    diesel::insert_into(groups::table)
+        .values(groups::name.eq(name))
+        .execute(conn)?;
+    groups::table.filter(groups::name.eq(name)).first(conn)
 }
 
 embed_migrations!("migrations/");

@@ -27,8 +27,4 @@ table! {
 joinable!(nodes -> groups (group_id));
 joinable!(nodes -> node_types (type_id));
 
-allow_tables_to_appear_in_same_query!(
-    groups,
-    node_types,
-    nodes,
-);
+allow_tables_to_appear_in_same_query!(groups, node_types, nodes,);
