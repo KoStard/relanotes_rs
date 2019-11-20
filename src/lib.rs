@@ -32,41 +32,6 @@ pub fn get_node_type(connection: &SqliteConnection, value: &str) -> Option<NodeT
         .ok()
 }
 
-pub fn get_node_types(connection: &SqliteConnection) -> Vec<NodeType> {
-    node_types::table.load::<NodeType>(connection).unwrap()
-}
-
-pub fn get_nodes(connection: &SqliteConnection) -> Vec<Node> {
-    nodes::table.load::<Node>(connection).unwrap()
-}
-
-pub fn get_node_by_name(connection: &SqliteConnection, name: &str) -> Option<Node> {
-    nodes::table
-        .filter(nodes::name.eq(name))
-        .first::<Node>(connection)
-        .ok()
-}
-
-pub fn create_regular_node(
-    connection: &SqliteConnection,
-    name: &str,
-    description: &str,
-    parent_node_id: Option<i32>,
-    group_id: i32,
-) -> Result<usize, diesel::result::Error> {
-    diesel::insert_into(nodes::table)
-        .values((
-            nodes::name.eq(name),
-            nodes::description.eq(description),
-            nodes::type_id.eq(get_node_type(connection, "regular")
-                .ok_or(diesel::result::Error::NotFound)?
-                .id),
-            nodes::linked_to_id.eq(parent_node_id),
-            nodes::group_id.eq(group_id),
-        ))
-        .execute(connection)
-}
-
 pub fn get_group_by_name(conn: &SqliteConnection, name: &str) -> Option<Group> {
     groups::table.filter(groups::name.eq(name)).first(conn).ok()
 }
@@ -84,6 +49,16 @@ pub fn create_group(conn: &SqliteConnection, name: &str) -> diesel::result::Quer
         .execute(conn)?;
     groups::table.filter(groups::name.eq(name)).first(conn)
 }
+
+pub fn list_groups(conn: &SqliteConnection) -> diesel::result::QueryResult<Vec<Group>> {
+    groups::table.load::<Group>(conn)
+}
+
+//pub fn delete_group(conn: &SqliteConnection, id: i32) -> Option<i32> {
+//    diesel::delete(
+//        groups::table.filter(groups::id.eq(id))
+//    ).execute(conn)
+//}
 
 embed_migrations!("migrations/");
 pub fn setup_database(
