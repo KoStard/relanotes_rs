@@ -8,6 +8,7 @@ use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
 use dotenv::dotenv;
 
+pub mod groups_representation;
 pub mod models;
 pub mod nodes_representation;
 pub mod schema;
@@ -43,16 +44,16 @@ pub fn load_group(connection: &SqliteConnection, group: &Group) -> NodesRepresen
     NodesRepresentation::new(nodes)
 }
 
-pub fn create_group(conn: &SqliteConnection, name: &str) -> diesel::result::QueryResult<Group> {
-    diesel::insert_into(groups::table)
-        .values(groups::name.eq(name))
-        .execute(conn)?;
-    groups::table.filter(groups::name.eq(name)).first(conn)
-}
+//pub fn create_group(conn: &SqliteConnection, name: &str) -> diesel::result::QueryResult<Group> {
+//    diesel::insert_into(groups::table)
+//        .values(groups::name.eq(name))
+//        .execute(conn)?;
+//    groups::table.filter(groups::name.eq(name)).first(conn)
+//}
 
-pub fn list_groups(conn: &SqliteConnection) -> diesel::result::QueryResult<Vec<Group>> {
-    groups::table.load::<Group>(conn)
-}
+//pub fn list_groups(conn: &SqliteConnection) -> diesel::result::QueryResult<Vec<Group>> {
+//    groups::table.load::<Group>(conn)
+//}
 
 //pub fn delete_group(conn: &SqliteConnection, id: i32) -> Option<i32> {
 //    diesel::delete(

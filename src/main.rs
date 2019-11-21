@@ -1,4 +1,3 @@
-use crate::Command::OpenWithId;
 use regex::RegexSet;
 use relanotes_rs::nodes_representation::NodesRepresentation;
 use relanotes_rs::*;
@@ -40,7 +39,6 @@ fn standard_view(
             res
         })
         .collect();
-
 
     let symbols_per_break = 3;
     let breaks_count = 3;
@@ -89,7 +87,7 @@ enum Command {
 
 fn input(prompt: &str) -> io::Result<String> {
     print!("{}", prompt);
-    stdout().lock().flush();
+    stdout().lock().flush()?;
     BufReader::new(stdin())
         .lines()
         .next()
@@ -143,18 +141,18 @@ fn main() {
                 standard_view(&nodes, &children, &parent_path, &group.name);
                 let command = get_command();
                 match command {
-                    Command::OpenWithId(id) => {
-                        if children.iter().find(|e| **e == id).is_some() {
-                            parent_id = Some(id);
-                        } else {
-                            println!("Invalid id");
-                        }
-                    }
                     Command::BackToParent => {
                         if let Some(p) = parent_id {
                             parent_id = nodes.get_node_loaded_parent(&p);
                         } else {
                             // Nothing happens, because is viewing the roots
+                        }
+                    }
+                    Command::OpenWithId(id) => {
+                        if children.iter().find(|e| **e == id).is_some() {
+                            parent_id = Some(id);
+                        } else {
+                            println!("Invalid id");
                         }
                     }
                     Command::OpenWithName(name) => {

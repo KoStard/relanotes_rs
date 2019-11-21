@@ -212,7 +212,8 @@ impl NodesRepresentation {
     }
 
     pub fn get_roots(&self) -> Vec<i32> {
-        let mut roots = self.map
+        let mut roots = self
+            .map
             .keys()
             .filter(|id| !self.node_has_loaded_parent(**id))
             .map(|e| *e)
