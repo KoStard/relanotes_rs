@@ -82,7 +82,7 @@ impl NodesRepresentation {
         name: &str,
         description: Option<&str>,
         parent_node_id: Option<i32>,
-        group_id: i32,
+        subgroup_id: i32,
         type_id: i32,
     ) -> Result<i32, diesel::result::Error> {
         if parent_node_id.is_none() {
@@ -104,13 +104,13 @@ impl NodesRepresentation {
                 nodes::description.eq(description),
                 nodes::type_id.eq(type_id),
                 nodes::linked_to_id.eq(parent_node_id),
-                nodes::group_id.eq(group_id),
+                nodes::subgroup_id.eq(subgroup_id),
             ))
             .execute(conn)?;
 
         let mut filter_to_get_model = nodes::table
             .filter(nodes::name.eq(name))
-            .filter(nodes::group_id.eq(group_id))
+            .filter(nodes::subgroup_id.eq(subgroup_id))
             .into_boxed();
 
         if parent_node_id.is_some() {

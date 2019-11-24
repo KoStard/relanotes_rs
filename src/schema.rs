@@ -20,11 +20,20 @@ table! {
         type_id -> Integer,
         name -> Text,
         description -> Nullable<Text>,
-        group_id -> Integer,
+        subgroup_id -> Integer,
     }
 }
 
-joinable!(nodes -> groups (group_id));
-joinable!(nodes -> node_types (type_id));
+table! {
+    subgroups (id) {
+        id -> Integer,
+        group_id -> Integer,
+        name -> Text,
+    }
+}
 
-allow_tables_to_appear_in_same_query!(groups, node_types, nodes,);
+joinable!(nodes -> node_types (type_id));
+joinable!(nodes -> subgroups (subgroup_id));
+joinable!(subgroups -> groups (group_id));
+
+allow_tables_to_appear_in_same_query!(groups, node_types, nodes, subgroups,);

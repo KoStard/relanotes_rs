@@ -46,6 +46,9 @@ impl<'a> Groups<'a> {
     pub fn group_exists(&self, name: &str) -> bool {
         self.groups_map.values().find(|e| e.name == name).is_some()
     }
+    pub fn get_names(&self) -> Vec<&str> {
+        self.groups_map.values().map(|e| &e.name[..]).collect()
+    }
 }
 
 #[cfg(test)]

@@ -17,7 +17,8 @@ Nodes
     - inherited - has a unique path - behaves like a regular node, because it IS a continuation of the regular node
         - preserve the path inside the GraphNode
         - update_path method - call update_path recursively on all child inherited nodes
-    - symlinks - only for regular/inherited nodes
+    - symlinks - only for regular/inherited nodes - the name will be a temp string
+        - there can't be symlinks to nodes located in the same subgroup
 
 Unique Path:
 - for inherited nodes
@@ -32,6 +33,7 @@ Path = Unique Path + Relative Path
 Search
 - as command
 - for referencing inside description
+- we have to allow searching through descriptions too
 
 Commands:
 - change view mode
@@ -181,3 +183,16 @@ Tasks
     - see children
     - see the path to current node
     - add/delete nodes
+
+
+##############################################################
+Design
+
+Groups
+    - GroupAbstraction
+        - GroupElement
+        - SubGroups
+            - SubGroupAbstraction
+                - SubGroupElement
+                - NodesTree
+                    - NodeElement
