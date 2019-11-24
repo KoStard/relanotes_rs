@@ -168,6 +168,9 @@ but there can be some information related to the given node in another subgroup.
 
 - Will the user be able to move the node to other parents or even groups?
 
+- What will happen with group/subgroup data when you close it and open another one?
+    - Currently the data will be preserved, but maybe we can delete and reload it every time
+
 ############################################################
 Tasks
 

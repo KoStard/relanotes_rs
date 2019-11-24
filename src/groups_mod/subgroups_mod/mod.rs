@@ -10,8 +10,8 @@ use std::collections::HashMap;
 
 pub struct SubGroupAbstraction<'a> {
     conn: &'a SqliteConnection,
-    subgroup: SubGroupElement,
-    nodes: NodesTree<'a>,
+    pub subgroup: SubGroupElement,
+    pub nodes: NodesTree<'a>,
 }
 
 impl<'a> SubGroupAbstraction<'a> {
@@ -28,7 +28,7 @@ impl<'a> SubGroupAbstraction<'a> {
 pub struct SubGroups<'a> {
     conn: &'a SqliteConnection,
     group_id: i32,
-    subgroups_map: HashMap<i32, SubGroupAbstraction<'a>>,
+    pub subgroups_map: HashMap<i32, SubGroupAbstraction<'a>>,
 }
 
 impl<'a> SubGroups<'a> {

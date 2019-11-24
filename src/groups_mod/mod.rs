@@ -2,17 +2,18 @@ pub mod subgroups_mod;
 
 use subgroups_mod::SubGroups;
 
-use crate::abstracts::Loadable;
+use crate::abstracts::{Loadable, Saveable};
 use crate::models::GroupElement;
 use crate::schema::groups;
 use diesel::prelude::*;
+use diesel::Identifiable;
 use diesel::SqliteConnection;
 use std::collections::HashMap;
 
 pub struct GroupAbstraction<'a> {
-    group: GroupElement,
+    pub group: GroupElement,
     conn: &'a SqliteConnection,
-    subgroups: SubGroups<'a>,
+    pub subgroups: SubGroups<'a>,
 }
 
 impl<'a> GroupAbstraction<'a> {
@@ -26,9 +27,20 @@ impl<'a> GroupAbstraction<'a> {
     }
 }
 
+impl<'a> Saveable for GroupAbstraction<'a> {
+    fn save(&self) -> Result<(), diesel::result::Error> {
+        diesel::update(groups::table.filter(groups::id.eq(self.group.id)))
+            .set(groups::name.eq(&self.group.name))
+            .execute(self.conn)?;
+        Ok(())
+    }
+}
+
+/// Groups
+
 pub struct Groups<'a> {
     conn: &'a SqliteConnection,
-    groups_map: HashMap<i32, GroupAbstraction<'a>>,
+    pub groups_map: HashMap<i32, GroupAbstraction<'a>>,
 }
 
 impl<'a> Groups<'a> {
@@ -47,6 +59,31 @@ impl<'a> Loadable for Groups<'a> {
             .into_iter()
             .map(|g| (*&g.id, GroupAbstraction::new(self.conn, g)))
             .collect();
+        Ok(())
+    }
+}
+
+// Adding new groups
+impl<'a> Groups<'a> {
+    pub fn create(&mut self, name: String) -> Result<&GroupAbstraction<'a>, diesel::result::Error> {
+        diesel::insert_into(groups::table)
+            .values((groups::name.eq(&name),))
+            .execute(self.conn)?;
+        let group = groups::table
+            .filter(groups::name.eq(&name))
+            .first::<GroupElement>(self.conn)?;
+        let group_id = group.id;
+        let group_abstraction = GroupAbstraction::new(self.conn, group);
+        self.groups_map.insert(group_id, group_abstraction);
+        Ok(self.groups_map.get(&group_id).unwrap())
+    }
+}
+
+// Deleting existing groups
+impl<'a> Groups<'a> {
+    pub fn delete(&mut self, group_id: i32) -> Result<(), diesel::result::Error> {
+        diesel::delete(groups::table.filter(groups::id.eq(group_id))).execute(self.conn)?;
+        self.groups_map.remove(&group_id); // Even if the group was not registered, not catching the error, because the removal was successful
         Ok(())
     }
 }
