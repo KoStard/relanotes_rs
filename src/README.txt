@@ -40,11 +40,18 @@ Commands:
 
 Views:
 - standard - showing only children of current node and the node content
-- tree-like
+- tree-like - from root or just a subtree of subgroup
 - all-in-one
 
 Examination:
 - flashcards
+
+Key bindings:
+- Ctrl+P
+- Ctrl+Shift+P
+- Ctrl+Backspace
+- Ctrl+Shift+Backspace - recursive delete?
+- Ctrl+Enter
 
 ######################################################################
 Questions:
@@ -125,3 +132,52 @@ but there can be some information related to the given node in another subgroup.
         - Maybe add flashcards and learn them layer by layer going deeper in the tree
     - We have to save the progress
         - Maybe save in a new table
+
+- How will back-end communicate with front-end?
+    * We have to understand the possible program states
+        * Just opened a node or looking at the root in standard view - this is easy, the list won't be so big, so we can
+        render everything from scratch and get whole data from back-end
+        * Searching - the results has to be rendered each time from scratch, because we can't know anything about results,
+        but this will be easy too
+        * Tree-like view - this will be heavy to re-render, because we include here whole or a big part of the subgroup,
+        but this is just a demo view, so we won't need to re-render this frequently
+        * All-in-one - We have to be careful with this, because this can worsen the performance if we render whole
+        subgroup each time
+    - Just send a JSON representative of given nodes - we'll check the performance
+
+- Will you be able to load just a part of the subgroup?
+    - Maybe not, because we'll have non-symlink nodes that have parents not in the current scope!
+
+- What will happen when user tries to remove group or subgroup?
+    - Maybe we can show some warning message but allow
+
+- How will the user create new nodes?
+    - Maybe add button to add new nodes, but add key binding too and maybe allow changing the new node type using
+    only key bindings
+
+- What will happen when user tries to remove a node that has children
+    - Maybe that depends on what are the node types - maybe allow to remove the node if it has only sticky_notes
+    - Or delete every connected sticky_notes or inherited nodes
+    - Maybe allow moving child nodes to the parent and then remove the node
+
+- How will the user delete nodes?
+    - Maybe we can allow the user to delete nodes without opening it - maybe with key bindings
+    - What about recursive deletes?
+
+- Will the user be able to move the node to other parents or even groups?
+
+############################################################
+Tasks
+
+- add subgroups
+- load whole subgroup
+- add node types and show them in graph nodes
+- add logic for serializing the nodes - don't include their children or parents, just them
+- add basic GUI
+    - select group
+    - select subgroup
+    - open nodes
+    - change the content of the node
+    - see children
+    - see the path to current node
+    - add/delete nodes
