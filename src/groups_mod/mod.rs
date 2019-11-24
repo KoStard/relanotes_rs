@@ -40,7 +40,7 @@ impl<'a> Groups<'a> {
     }
 }
 
-impl Loadable for Groups {
+impl<'a> Loadable for Groups<'a> {
     fn load(&mut self) -> Result<(), diesel::result::Error> {
         let groups: Vec<GroupElement> = groups::table.load::<GroupElement>(self.conn)?;
         self.groups_map = groups

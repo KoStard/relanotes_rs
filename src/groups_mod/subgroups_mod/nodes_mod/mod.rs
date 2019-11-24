@@ -14,7 +14,7 @@ enum NodeType {
     SymLink,
 }
 
-enum Nodes<'a> {
+pub enum Node<'a> {
     Regular {
         conn: &'a SqliteConnection,
         id: i32,
@@ -44,51 +44,81 @@ enum Nodes<'a> {
     },
 }
 
+impl<'a> Node<'a> {
+    fn get_node_id(&self) -> i32 {
+        match self {
+            Node::Regular {
+                conn,
+                id,
+                name,
+                description,
+                associated_node_id,
+            } => *id,
+            Node::StickyNotes {
+                conn,
+                id,
+                name,
+                description,
+                owner_id,
+            } => *id,
+            Node::Inherited {
+                conn,
+                id,
+                name,
+                description,
+                parent_node_id,
+            } => *id,
+            Node::SymLink {
+                conn,
+                id,
+                source_node_id,
+                source_node_name,
+            } => *id,
+        }
+    }
+}
+
 struct GraphNode<'a> {
-    node: Nodes<'a>,
-    parent_node_id: Option<i32>,
+    pub node: Node<'a>,
+    pub parent_node_id: Option<i32>,
     pub children: Vec<i32>,
 }
 
 impl<'a> GraphNode<'a> {
-    pub fn new(
-        conn: &'a SqliteConnection,
-        node_element: NodeElement,
-        node_type_value: &str,
-    ) -> Self {
+    pub fn new(conn: &'a SqliteConnection, node_element: NodeElement, node_type: NodeType) -> Self {
         let linked_to_id = node_element.linked_to_id;
-        let node = match node_type_value {
-            "regular" => Nodes::Regular {
+        let node = match node_type {
+            NodeType::Regular => Node::Regular {
                 conn,
                 id: node_element.id,
                 name: node_element.name,
                 description: node_element.description,
                 associated_node_id: linked_to_id,
             },
-            "sticky_notes" => Nodes::StickyNotes {
+            NodeType::StickyNotes => Node::StickyNotes {
                 conn,
                 id: node_element.id,
                 name: node_element.name,
                 description: node_element.description,
                 owner_id: linked_to_id.unwrap(),
             },
-            "inherited" => Nodes::Inherited {
+            NodeType::Inherited => Node::Inherited {
                 conn,
                 id: node_element.id,
                 name: node_element.name,
                 description: node_element.description,
                 parent_node_id: linked_to_id.unwrap(),
             },
-            "symlinks" => Nodes::SymLink {
+            NodeType::SymLink => Node::SymLink {
                 conn,
                 id: node_element.id,
                 source_node_id: linked_to_id.unwrap(),
                 source_node_name: nodes::table
                     .filter(nodes::id.eq(linked_to_id.unwrap()))
                     .select(nodes::name)
-                    .first::<(String)>(conn).unwrap(),
+                    .first::<(String)>(conn)
+                    .unwrap(),
             },
-            _ => panic!("Invalid node type!"),
         };
         let graph_node = GraphNode {
             node,
@@ -134,13 +164,13 @@ impl<'a> NodesTree<'a> {
 
     pub fn create_node(
         &mut self,
-        conn: &SqliteConnection,
+        conn: &'a SqliteConnection,
         name: &str,
         description: Option<&str>,
         parent_node_id: Option<i32>,
         subgroup_id: i32,
         type_id: i32,
-    ) -> Result<i32, diesel::result::Error> {
+    ) -> Result<&Node, diesel::result::Error> {
         // Some more checking here!
         if parent_node_id.is_none() {
             if nodes::table
@@ -180,11 +210,7 @@ impl<'a> NodesTree<'a> {
         let mut new_node = filter_to_get_model.first::<NodeElement>(conn)?;
 
         let new_node_id = new_node.id;
-        let graph_node = GraphNode::new(
-            conn,
-            new_node,
-            self.get_node_type.get(&type_id).unwrap(),
-        );
+        let graph_node = GraphNode::new(conn, new_node, self.get_node_type(&type_id).unwrap());
         self.nodes_map.insert(new_node_id, graph_node);
 
         if let Some(linked_to_id) = parent_node_id {
@@ -192,17 +218,17 @@ impl<'a> NodesTree<'a> {
                 parent_graph_node.add_child(new_node_id);
             }
         }
-        Ok(new_node_id)
+        Ok(&self.nodes_map.get(&new_node_id).unwrap().node)
     }
 
-    fn get_node_type(&self, type_id: i32) -> Option<NodeType> {
-        let type_value = self.node_types_mapping.get(&type_id)?;
+    fn get_node_type(&self, type_id: &i32) -> Option<NodeType> {
+        let type_value = self.node_types_mapping.get(type_id)?;
         match &type_value[..] {
             "regular" => Some(NodeType::Regular),
             "sticky_notes" => Some(NodeType::StickyNotes),
             "inherited" => Some(NodeType::Inherited),
             "symlinks" => Some(NodeType::SymLink),
-            _ => None
+            _ => None,
         }
     }
 
@@ -223,23 +249,23 @@ impl<'a> NodesTree<'a> {
         self.nodes_map.get(&graph_node.parent_node_id?)
     }
 
-//    pub fn delete_node(&mut self, conn: &SqliteConnection, node_id: i32) -> Option<i32> {
-//        let graph_node = self.nodes_map.get(&node_id)?;
-//        if !graph_node.children.is_empty() {
-//            None
-//        } else {
-//            diesel::delete(nodes::table.filter(nodes::id.eq(node_id)))
-//                .execute(conn)
-//                .ok()?;
-//            // remove from children
-//            if let Some(parent_node_id) = graph_node.parent_node_id {
-//                if let Some(parent) = self.nodes_map.get_mut(&parent_node_id) {
-//                    parent.remove_child(node_id);
-//                }
-//            }
-//            Some(node_id)
-//        }
-//    }
+    //    pub fn delete_node(&mut self, conn: &SqliteConnection, node_id: i32) -> Option<i32> {
+    //        let graph_node = self.nodes_map.get(&node_id)?;
+    //        if !graph_node.children.is_empty() {
+    //            None
+    //        } else {
+    //            diesel::delete(nodes::table.filter(nodes::id.eq(node_id)))
+    //                .execute(conn)
+    //                .ok()?;
+    //            // remove from children
+    //            if let Some(parent_node_id) = graph_node.parent_node_id {
+    //                if let Some(parent) = self.nodes_map.get_mut(&parent_node_id) {
+    //                    parent.remove_child(node_id);
+    //                }
+    //            }
+    //            Some(node_id)
+    //        }
+    //    }
 
     pub fn get_roots(&self) -> Vec<i32> {
         let mut roots = self
@@ -263,7 +289,7 @@ impl<'a> NodesTree<'a> {
     pub fn get_node_loaded_parent(&self, id: &i32) -> Option<i32> {
         self.nodes_map
             .get(&self.nodes_map.get(id)?.parent_node_id?)
-            .map(|n| n.node.id)
+            .map(|n| n.node.get_node_id())
     }
 }
 
@@ -279,11 +305,8 @@ impl<'a> Loadable for NodesTree<'a> {
         for node in nodes {
             let node_id = node.id;
             let linked_to_id = node.linked_to_id;
-            let graph_node = GraphNode::new(
-                self.conn,
-                node,
-                self.get_node_type.get(&node.type_id).unwrap(),
-            );
+            let node_type = self.get_node_type(&node.type_id).unwrap();
+            let graph_node = GraphNode::new(self.conn, node, node_type);
             nodes_map.insert(node_id, graph_node);
             if let Some(parent) = linked_to_id {
                 // nodes_map.get(k: &Q)
