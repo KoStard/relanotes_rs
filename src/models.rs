@@ -1,8 +1,9 @@
 // Here order matters
 
 use super::schema::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Queryable, Identifiable, Debug, Clone)]
+#[derive(Queryable, Identifiable, Debug, Clone, Serialize, Deserialize)]
 #[table_name = "node_types"]
 pub struct NodeTypeElement {
     pub id: i32,
@@ -10,23 +11,23 @@ pub struct NodeTypeElement {
     pub value: String,
 }
 
-#[derive(Queryable, Identifiable, Debug, Clone)]
+#[derive(Queryable, Identifiable, Debug, Clone, Serialize, Deserialize)]
 #[table_name = "groups"]
 pub struct GroupElement {
     pub id: i32,
     pub name: String,
 }
 
-#[derive(Queryable, Identifiable, Debug, Clone, Associations)]
+#[derive(Queryable, Identifiable, Debug, Clone, Associations, Serialize, Deserialize)]
 #[table_name = "subgroups"]
-// #[belongs_to(GroupElement, foreign_key = "group_id")]
+#[belongs_to(GroupElement, foreign_key = "group_id")]
 pub struct SubGroupElement {
     pub id: i32,
     pub group_id: i32,
     pub name: String,
 }
 
-#[derive(Queryable, Identifiable, Clone, Associations, Debug)]
+#[derive(Queryable, Identifiable, Clone, Associations, Debug, Serialize, Deserialize)]
 #[belongs_to(NodeTypeElement, foreign_key = "type_id")]
 #[belongs_to(NodeElement, foreign_key = "linked_to_id")]
 #[belongs_to(SubGroupElement, foreign_key = "subgroup_id")]

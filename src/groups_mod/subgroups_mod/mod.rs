@@ -29,6 +29,7 @@ pub struct SubGroups<'a> {
     conn: &'a SqliteConnection,
     group_id: i32,
     pub subgroups_map: HashMap<i32, SubGroupAbstraction<'a>>,
+    pub loaded: bool,
 }
 
 impl<'a> SubGroups<'a> {
@@ -37,6 +38,7 @@ impl<'a> SubGroups<'a> {
             conn,
             group_id,
             subgroups_map: HashMap::new(),
+            loaded: false,
         }
     }
 }
@@ -50,6 +52,7 @@ impl<'a> Loadable for SubGroups<'a> {
             .into_iter()
             .map(|g| (*&g.id, SubGroupAbstraction::new(self.conn, g)))
             .collect();
+        self.loaded = true;
         Ok(())
     }
 }

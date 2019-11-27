@@ -145,6 +145,7 @@ pub struct NodesTree<'a> {
     conn: &'a SqliteConnection,
     subgroup_id: i32,
     node_types_mapping: HashMap<i32, String>,
+    pub loaded: bool,
 }
 
 impl<'a> NodesTree<'a> {
@@ -159,6 +160,7 @@ impl<'a> NodesTree<'a> {
                 .unwrap()
                 .into_iter()
                 .collect(),
+            loaded: false,
         }
     }
 
@@ -326,6 +328,7 @@ impl<'a> Loadable for NodesTree<'a> {
         }
 
         self.nodes_map = nodes_map;
+        self.loaded = true;
 
         Ok(())
     }

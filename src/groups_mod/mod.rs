@@ -41,6 +41,7 @@ impl<'a> Saveable for GroupAbstraction<'a> {
 pub struct Groups<'a> {
     conn: &'a SqliteConnection,
     pub groups_map: HashMap<i32, GroupAbstraction<'a>>,
+    pub loaded: bool,
 }
 
 impl<'a> Groups<'a> {
@@ -48,6 +49,7 @@ impl<'a> Groups<'a> {
         Groups {
             conn,
             groups_map: HashMap::new(),
+            loaded: false,
         }
     }
 }
@@ -59,6 +61,7 @@ impl<'a> Loadable for Groups<'a> {
             .into_iter()
             .map(|g| (*&g.id, GroupAbstraction::new(self.conn, g)))
             .collect();
+        self.loaded = true;
         Ok(())
     }
 }
