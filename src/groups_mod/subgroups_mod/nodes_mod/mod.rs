@@ -6,7 +6,7 @@ use diesel::result::Error;
 use diesel::SqliteConnection;
 use std::collections::HashMap;
 
-enum NodeType {
+pub enum NodeType {
     // Just the type
     Regular,
     StickyNotes,
@@ -14,8 +14,11 @@ enum NodeType {
     SymLink,
 }
 
+#[derive(Serialize)]
+#[serde(tag = "node_type")]
 pub enum Node<'a> {
     Regular {
+        #[serde(skip_serializing)]
         conn: &'a SqliteConnection,
         id: i32,
         name: String,
@@ -23,6 +26,7 @@ pub enum Node<'a> {
         associated_node_id: Option<i32>,
     },
     StickyNotes {
+        #[serde(skip_serializing)]
         conn: &'a SqliteConnection,
         id: i32,
         name: String,
@@ -30,6 +34,7 @@ pub enum Node<'a> {
         owner_id: i32,
     },
     Inherited {
+        #[serde(skip_serializing)]
         conn: &'a SqliteConnection,
         id: i32,
         name: String,
@@ -37,6 +42,7 @@ pub enum Node<'a> {
         parent_node_id: i32,
     },
     SymLink {
+        #[serde(skip_serializing)]
         conn: &'a SqliteConnection,
         id: i32,
         source_node_id: i32,
@@ -48,37 +54,37 @@ impl<'a> Node<'a> {
     fn get_node_id(&self) -> i32 {
         match self {
             Node::Regular {
-                conn,
+                conn: _,
                 id,
-                name,
-                description,
-                associated_node_id,
+                name: _,
+                description: _,
+                associated_node_id: _,
             } => *id,
             Node::StickyNotes {
-                conn,
+                conn: _,
                 id,
-                name,
-                description,
-                owner_id,
+                name: _,
+                description: _,
+                owner_id: _,
             } => *id,
             Node::Inherited {
-                conn,
+                conn: _,
                 id,
-                name,
-                description,
-                parent_node_id,
+                name: _,
+                description: _,
+                parent_node_id: _,
             } => *id,
             Node::SymLink {
-                conn,
+                conn: _,
                 id,
-                source_node_id,
-                source_node_name,
+                source_node_id: _,
+                source_node_name: _,
             } => *id,
         }
     }
 }
 
-struct GraphNode<'a> {
+pub struct GraphNode<'a> {
     pub node: Node<'a>,
     pub parent_node_id: Option<i32>,
     pub children: Vec<i32>,
@@ -141,7 +147,7 @@ impl<'a> GraphNode<'a> {
 }
 
 pub struct NodesTree<'a> {
-    nodes_map: HashMap<i32, GraphNode<'a>>,
+    pub nodes_map: HashMap<i32, GraphNode<'a>>,
     conn: &'a SqliteConnection,
     subgroup_id: i32,
     node_types_mapping: HashMap<i32, String>,

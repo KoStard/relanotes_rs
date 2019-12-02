@@ -1,7 +1,7 @@
 use crate::models::SubGroupElement;
 use crate::schema::subgroups;
 use diesel::SqliteConnection;
-mod nodes_mod;
+pub mod nodes_mod;
 use crate::abstracts::Loadable;
 use diesel::prelude::*;
 use diesel::result::Error;

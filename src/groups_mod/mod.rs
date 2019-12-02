@@ -1,6 +1,6 @@
 pub mod subgroups_mod;
 
-use subgroups_mod::SubGroups;
+use subgroups_mod::{SubGroupAbstraction, SubGroups};
 
 use crate::abstracts::{Loadable, Saveable};
 use crate::models::GroupElement;
@@ -51,6 +51,28 @@ impl<'a> Groups<'a> {
             groups_map: HashMap::new(),
             loaded: false,
         }
+    }
+    pub fn get_subgroup(self: &Self, subgroup_id: i32) -> Option<&'a SubGroupAbstraction> {
+        self.groups_map.values().by_ref().find_map(|g| {
+            g.subgroups
+                .subgroups_map
+                .values()
+                .by_ref()
+                .find(|sg| sg.subgroup.id == subgroup_id)
+        })
+    }
+    pub fn get_subgroup_mut(
+        self: &mut Self,
+        subgroup_id: i32,
+    ) -> Option<&'a mut SubGroupAbstraction> {
+        let group_id;
+        {
+            let subgroup = self.get_subgroup(subgroup_id)?;
+            group_id = subgroup.subgroup.group_id;
+        }
+        self.groups_map
+            .get_mut(&group_id)
+            .and_then(|group| group.subgroups.subgroups_map.get_mut(&subgroup_id))
     }
 }
 
