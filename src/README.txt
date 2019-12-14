@@ -20,6 +20,12 @@ Nodes
     - symlinks - only for regular/inherited nodes - the name will be a temp string
         - there can't be symlinks to nodes located in the same subgroup
 
+- how will be update nodes?
+    - maybe add update logic on graph node - but if we allow change of any field then we'll have problems with graph if
+    you change the reference to the parent node
+    - maybe add upadte logic on the node itself, but some research is required here, because we have to understand how to
+    update with diesel using already existing object
+
 Unique Path:
 - for inherited nodes
 - a path from the nearest regular node among parents to current one
