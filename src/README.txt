@@ -14,17 +14,18 @@ Nodes
 - types
     - regular - the name will be unique - the main type, so can have children of any type
     - sticky_notes - just have some information about - can have children only of type sticky_notes
+        - is unique for given node
     - inherited - has a unique path - behaves like a regular node, because it IS a continuation of the regular node
         - preserve the path inside the GraphNode
         - update_path method - call update_path recursively on all child inherited nodes
     - symlinks - only for regular/inherited nodes - the name will be a temp string
         - there can't be symlinks to nodes located in the same subgroup
-
-- how will be update nodes?
-    - maybe add update logic on graph node - but if we allow change of any field then we'll have problems with graph if
-    you change the reference to the parent node
-    - maybe add upadte logic on the node itself, but some research is required here, because we have to understand how to
-    update with diesel using already existing object
+        - is unique in subgroup namespace
+    [MAYBE]
+    - divisor
+        - this node can have only name
+        - can ONLY have children of type regular/inherited
+        * just to group children elements
 
 Unique Path:
 - for inherited nodes
@@ -162,6 +163,26 @@ but there can be some information related to the given node in another subgroup.
 - How will the user create new nodes?
     - Maybe add button to add new nodes, but add key binding too and maybe allow changing the new node type using
     only key bindings
+    - How will we handle that in the back-end?
+        - First of all the process has to be validated!
+            - For regular nodes we have to find a node with given name and group_id (using joins)
+                * Because the scope is group-level, we can't just check if the name appears in the loaded nodes...
+                We have to check with queries.
+            - For inherited nodes we have to find a node with given name and same associated_node_id
+                * These nodes can't be bound to nodes from other subgroups
+            - symlinks - just check the associated_node_id in current subgroup
+            - sticky_notes - just check the associated_node_id and name
+        - If the validation passes, you can create the node, add it to the graph and return to the front-end
+
+- how will be update node name/description?
+    - we'll add update method into the graph node
+
+- will the user be able to move the node?
+    * this will lead to graph structure changes!
+        * maybe this will lead to problems with paths in the front-end, because we are not generating the path in the back-end
+        (although this is currently computationally easy)
+    - maybe just allow the user to change the associated node
+
 
 - What will happen when user tries to remove a node that has children
     - Maybe that depends on what are the node types - maybe allow to remove the node if it has only sticky_notes

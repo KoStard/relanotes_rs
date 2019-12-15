@@ -36,9 +36,4 @@ joinable!(nodes -> node_types (type_id));
 joinable!(nodes -> subgroups (subgroup_id));
 joinable!(subgroups -> groups (group_id));
 
-allow_tables_to_appear_in_same_query!(
-    groups,
-    node_types,
-    nodes,
-    subgroups,
-);
+allow_tables_to_appear_in_same_query!(groups, node_types, nodes, subgroups,);

@@ -1,7 +1,6 @@
 // Here order matters
 
 use super::schema::*;
-use serde::{Deserialize, Serialize};
 
 #[derive(Queryable, Identifiable, Debug, Clone, Serialize, Deserialize)]
 #[table_name = "node_types"]

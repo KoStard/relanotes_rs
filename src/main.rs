@@ -209,5 +209,5 @@
 
 use relanotes_rs;
 fn main() {
-    let conn = relanotes_rs::establish_connection();
+    //    let conn = relanotes_rs::establish_connection();
 }

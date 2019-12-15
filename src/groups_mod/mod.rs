@@ -1,12 +1,12 @@
 pub mod subgroups_mod;
 
-use subgroups_mod::{SubGroupAbstraction, SubGroups};
+use subgroups_mod::SubGroups;
 
 use crate::abstracts::{Loadable, Saveable};
+use crate::groups_mod::subgroups_mod::SubGroupAbstraction;
 use crate::models::GroupElement;
 use crate::schema::groups;
 use diesel::prelude::*;
-use diesel::Identifiable;
 use diesel::SqliteConnection;
 use std::collections::HashMap;
 
@@ -61,6 +61,23 @@ impl<'a> Groups<'a> {
                 .find(|sg| sg.subgroup.id == subgroup_id)
                 .map(|subgroup| subgroup.subgroup.group_id)
         })
+    }
+    pub fn get_subgroup_abstraction(&self, subgroup_id: i32) -> Option<&SubGroupAbstraction> {
+        self.groups_map
+            .get(&self.get_group_from_subgroup(subgroup_id)?)?
+            .subgroups
+            .subgroups_map
+            .get(&subgroup_id)
+    }
+    pub fn get_mut_subgroup_abstraction(
+        &mut self,
+        subgroup_id: i32,
+    ) -> Option<&mut SubGroupAbstraction<'a>> {
+        self.groups_map
+            .get_mut(&self.get_group_from_subgroup(subgroup_id)?)?
+            .subgroups
+            .subgroups_map
+            .get_mut(&subgroup_id)
     }
 }
 
