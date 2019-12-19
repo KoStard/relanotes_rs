@@ -10,7 +10,7 @@ mod validation_errors;
 
 use validation_errors::RelanotesValidationRejection;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 #[serde(tag = "node_type")]
 pub enum NodeType {
     // Just the type
@@ -87,6 +87,24 @@ impl<'a> Node<'a> {
             Node::StickyNotes { id, .. } => *id,
             Node::Inherited { id, .. } => *id,
             Node::SymLink { id, .. } => *id,
+        }
+    }
+    pub fn get_linked_to_id(&self) -> Option<i32> {
+        match self {
+            Node::Regular {
+                associated_node_id, ..
+            } => *associated_node_id,
+            Node::StickyNotes { owner_id, .. } => Some(*owner_id),
+            Node::Inherited { parent_node_id, .. } => Some(*parent_node_id),
+            Node::SymLink { source_node_id, .. } => Some(*source_node_id),
+        }
+    }
+    pub fn get_node_type(&self) -> NodeType {
+        match self {
+            Node::Regular { .. } => NodeType::Regular,
+            Node::StickyNotes { .. } => NodeType::StickyNotes,
+            Node::Inherited { .. } => NodeType::Inherited,
+            Node::SymLink { .. } => NodeType::SymLink,
         }
     }
     pub fn update_name_and_description(
@@ -278,19 +296,26 @@ impl<'a> NodesTree<'a> {
         node_type: NodeType,
     ) -> Result<(), RelanotesValidationRejection> {
         if subgroup_id != self.subgroup_id {
-            Err(RelanotesValidationRejection::TryingToMutateOtherSubgroup {
+            return Err(RelanotesValidationRejection::TryingToMutateOtherSubgroup {
                 current: self.subgroup_id,
                 checking: subgroup_id,
-            })
+            });
         }
-        if name.len() == 0 {
-            Err(RelanotesValidationRejection::EmptyName)
+        if let Some(id) = id {
+            if let Some(linked_to_id) = linked_to_id {
+                if id == linked_to_id {
+                    return Err(RelanotesValidationRejection::LinkedToItself(id));
+                }
+            }
         }
         if let Some(id) = id {
             // Mutating existing node and the user can change the name/owner of the node, so this
             // has to be validated too
             match node_type {
                 NodeType::Regular => {
+                    if name.len() == 0 {
+                        return Err(RelanotesValidationRejection::EmptyName);
+                    }
                     // There can be only one regular node with given name in the group
                     if nodes::table
                         .inner_join(subgroups::table)
@@ -299,21 +324,24 @@ impl<'a> NodesTree<'a> {
                         .filter(subgroups::group_id.eq(group_id))
                         .count()
                         .get_result::<i64>(self.conn)
-                        .map_err(|e| RelanotesValidationRejection::TechnicalError(e.0))?
+                        .map_err(|e| RelanotesValidationRejection::TechnicalError(e.to_string()))?
                         != 0
                     {
-                        RelanotesValidationRejection::DuplicateRegularNode(name.into())
+                        RelanotesValidationRejection::DuplicateRegularNode(name.into());
                     }
                 }
                 NodeType::StickyNotes => {
+                    if name.len() == 0 {
+                        return Err(RelanotesValidationRejection::EmptyName);
+                    }
                     // Sticky-notes are unique in the owner node scope
                     // They can't be without owner
                     if linked_to_id.is_none() {
-                        Err(RelanotesValidationRejection::StickyNoteWithoutOwner)
+                        return Err(RelanotesValidationRejection::StickyNoteWithoutOwner);
                     }
                     let linked_to_id = linked_to_id.unwrap();
                     if !self.nodes_map.contains_key(&linked_to_id) {
-                        Err(RelanotesValidationRejection::InvalidStickyNoteOwner)
+                        return Err(RelanotesValidationRejection::InvalidStickyNoteOwner);
                     }
                     if self
                         .nodes_map
@@ -324,11 +352,12 @@ impl<'a> NodesTree<'a> {
                         .find(|c| {
                             if let Node::StickyNotes {
                                 id: current_id,
-                                name: current_name, ..
+                                name: current_name,
+                                ..
                             } = &self.nodes_map.get(c).unwrap().node
                             {
-                                if current_name == name && current_id != id {
-                                    true
+                                if current_name == name && *current_id != id {
+                                    return true;
                                 }
                             }
                             false
@@ -336,20 +365,23 @@ impl<'a> NodesTree<'a> {
                         .is_some()
                     {
                         // Found sticky note with same name
-                        Err(RelanotesValidationRejection::DuplicateStickyNote(
+                        return Err(RelanotesValidationRejection::DuplicateStickyNote(
                             name.into(),
-                        ))
+                        ));
                     }
                 }
                 NodeType::Inherited => {
+                    if name.len() == 0 {
+                        return Err(RelanotesValidationRejection::EmptyName);
+                    }
                     // Name is unique in the owner's namespace
                     // Can't be without owner
                     if linked_to_id.is_none() {
-                        Err(RelanotesValidationRejection::InheritedNodeWithoutOwner)
+                        return Err(RelanotesValidationRejection::InheritedNodeWithoutOwner);
                     }
                     let linked_to_id = linked_to_id.unwrap();
                     if !self.nodes_map.contains_key(&linked_to_id) {
-                        Err(RelanotesValidationRejection::InvalidInheritedNodeOwner)
+                        return Err(RelanotesValidationRejection::InvalidInheritedNodeOwner);
                     }
                     if self
                         .nodes_map
@@ -358,13 +390,14 @@ impl<'a> NodesTree<'a> {
                         .children
                         .iter()
                         .find(|c| {
-                            if let Node::InheritedNodes {
+                            if let Node::Inherited {
                                 id: current_id,
-                                name: current_name, ..
+                                name: current_name,
+                                ..
                             } = &self.nodes_map.get(c).unwrap().node
                             {
-                                if current_name == name && id != current_id {
-                                    true
+                                if current_name == name && id != *current_id {
+                                    return true;
                                 }
                             }
                             false
@@ -372,32 +405,32 @@ impl<'a> NodesTree<'a> {
                         .is_some()
                     {
                         // Found sticky note with same name
-                        Err(RelanotesValidationRejection::DuplicateInheritedNode(
+                        return Err(RelanotesValidationRejection::DuplicateInheritedNode(
                             name.into(),
-                        ))
+                        ));
                     }
                 }
                 NodeType::SymLink => {
                     // Can't have description
                     if name.len() != 0 {
-                        Err(RelanotesValidationRejection::SymLinkWithName)
+                        return Err(RelanotesValidationRejection::SymLinkWithName);
                     }
                     if description.is_some() {
-                        Err(RelanotesValidationRejection::SymLinkWithDescription)
+                        return Err(RelanotesValidationRejection::SymLinkWithDescription);
                     }
                     if linked_to_id.is_none() {
-                        Err(RelanotesValidationRejection::SymLinkWithoutOwner)
+                        return Err(RelanotesValidationRejection::SymLinkWithoutOwner);
                     }
                     let linked_to_id = linked_to_id.unwrap();
                     if self.nodes_map.contains_key(&linked_to_id) {
-                        Err(RelanotesValidationRejection::SymLinkToSameSubgroup)
+                        return Err(RelanotesValidationRejection::SymLinkToSameSubgroup);
                     }
                     if nodes::table
                         .filter(nodes::id.eq(&linked_to_id))
                         .first::<NodeElement>(self.conn)
                         .is_ok()
                     {
-                        Err(RelanotesValidationRejection::InvalidSymLinkOwner)
+                        return Err(RelanotesValidationRejection::InvalidSymLinkOwner);
                     }
                 }
             }
@@ -405,6 +438,9 @@ impl<'a> NodesTree<'a> {
             // Creating a new node
             match node_type {
                 NodeType::Regular => {
+                    if name.len() == 0 {
+                        return Err(RelanotesValidationRejection::EmptyName);
+                    }
                     // There can be only one regular node with given name in the group
                     if nodes::table
                         .inner_join(subgroups::table)
@@ -412,21 +448,24 @@ impl<'a> NodesTree<'a> {
                         .filter(subgroups::group_id.eq(group_id))
                         .count()
                         .get_result::<i64>(self.conn)
-                        .map_err(|e| RelanotesValidationRejection::TechnicalError(e.0))?
+                        .map_err(|e| RelanotesValidationRejection::TechnicalError(e.to_string()))?
                         != 0
                     {
-                        RelanotesValidationRejection::DuplicateRegularNode(name.into())
+                        RelanotesValidationRejection::DuplicateRegularNode(name.into());
                     }
                 }
                 NodeType::StickyNotes => {
+                    if name.len() == 0 {
+                        return Err(RelanotesValidationRejection::EmptyName);
+                    }
                     // Sticky-notes are unique in the owner node scope
                     // They can't be without owner
                     if linked_to_id.is_none() {
-                        Err(RelanotesValidationRejection::StickyNoteWithoutOwner)
+                        return Err(RelanotesValidationRejection::StickyNoteWithoutOwner);
                     }
                     let linked_to_id = linked_to_id.unwrap();
                     if !self.nodes_map.contains_key(&linked_to_id) {
-                        Err(RelanotesValidationRejection::InvalidStickyNoteOwner)
+                        return Err(RelanotesValidationRejection::InvalidStickyNoteOwner);
                     }
                     if self
                         .nodes_map
@@ -440,7 +479,7 @@ impl<'a> NodesTree<'a> {
                             } = &self.nodes_map.get(c).unwrap().node
                             {
                                 if current_name == name {
-                                    true
+                                    return true;
                                 }
                             }
                             false
@@ -448,20 +487,23 @@ impl<'a> NodesTree<'a> {
                         .is_some()
                     {
                         // Found sticky note with same name
-                        Err(RelanotesValidationRejection::DuplicateStickyNote(
+                        return Err(RelanotesValidationRejection::DuplicateStickyNote(
                             name.into(),
-                        ))
+                        ));
                     }
                 }
                 NodeType::Inherited => {
+                    if name.len() == 0 {
+                        return Err(RelanotesValidationRejection::EmptyName);
+                    }
                     // Name is unique in the owner's namespace
                     // Can't be without owner
                     if linked_to_id.is_none() {
-                        Err(RelanotesValidationRejection::InheritedNodeWithoutOwner)
+                        return Err(RelanotesValidationRejection::InheritedNodeWithoutOwner);
                     }
                     let linked_to_id = linked_to_id.unwrap();
                     if !self.nodes_map.contains_key(&linked_to_id) {
-                        Err(RelanotesValidationRejection::InvalidInheritedNodeOwner)
+                        return Err(RelanotesValidationRejection::InvalidInheritedNodeOwner);
                     }
                     if self
                         .nodes_map
@@ -470,12 +512,12 @@ impl<'a> NodesTree<'a> {
                         .children
                         .iter()
                         .find(|c| {
-                            if let Node::InheritedNodes {
+                            if let Node::Inherited {
                                 name: current_name, ..
                             } = &self.nodes_map.get(c).unwrap().node
                             {
                                 if current_name == name {
-                                    true
+                                    return true;
                                 }
                             }
                             false
@@ -483,32 +525,32 @@ impl<'a> NodesTree<'a> {
                         .is_some()
                     {
                         // Found sticky note with same name
-                        Err(RelanotesValidationRejection::DuplicateInheritedNode(
+                        return Err(RelanotesValidationRejection::DuplicateInheritedNode(
                             name.into(),
-                        ))
+                        ));
                     }
                 }
                 NodeType::SymLink => {
                     // Can't have description
                     if name.len() != 0 {
-                        Err(RelanotesValidationRejection::SymLinkWithName)
+                        return Err(RelanotesValidationRejection::SymLinkWithName);
                     }
                     if description.is_some() {
-                        Err(RelanotesValidationRejection::SymLinkWithDescription)
+                        return Err(RelanotesValidationRejection::SymLinkWithDescription);
                     }
                     if linked_to_id.is_none() {
-                        Err(RelanotesValidationRejection::SymLinkWithoutOwner)
+                        return Err(RelanotesValidationRejection::SymLinkWithoutOwner);
                     }
                     let linked_to_id = linked_to_id.unwrap();
                     if self.nodes_map.contains_key(&linked_to_id) {
-                        Err(RelanotesValidationRejection::SymLinkToSameSubgroup)
+                        return Err(RelanotesValidationRejection::SymLinkToSameSubgroup);
                     }
                     if nodes::table
                         .filter(nodes::id.eq(&linked_to_id))
                         .first::<NodeElement>(self.conn)
                         .is_ok()
                     {
-                        Err(RelanotesValidationRejection::InvalidSymLinkOwner)
+                        return Err(RelanotesValidationRejection::InvalidSymLinkOwner);
                     }
                 }
             }
@@ -585,8 +627,8 @@ impl<'a> NodesTree<'a> {
         }
     }
 
-    pub fn get_node_type_id_from_type(&self, node_type: NodeType) -> i32 {
-        let type_value = match &type_value[..] {
+    pub fn get_node_type_id_from_type(&self, node_type: &NodeType) -> i32 {
+        let type_value = match node_type {
             NodeType::Regular => "regular",
             NodeType::StickyNotes => "sticky_notes",
             NodeType::Inherited => "inherited",
@@ -595,7 +637,7 @@ impl<'a> NodesTree<'a> {
         *self
             .node_types_mapping
             .iter()
-            .find(|(i, e)| e == type_value)
+            .find(|(i, e)| *e == type_value)
             .unwrap()
             .0
     }
